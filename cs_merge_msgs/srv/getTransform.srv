@@ -1,0 +1,6 @@
+#map topics
+nav_msgs::OccupancyMap topic_map_one
+nav_msgs::OccupancyMap topic_map_two
+---
+#best transform
+cs_merge_msgs/transform result
