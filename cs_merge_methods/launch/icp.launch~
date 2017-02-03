@@ -1,8 +1,0 @@
-<?xml version="1.0"?>
-
-<launch>
-	<node pkg="cs_merge_icp" type="cs_merge_icp" name="cs_merge_icp">
-	<param name="repetitions" value="150" />	
-	<param name="ransac_amount" value=".7" />
-</node>
-</launch>

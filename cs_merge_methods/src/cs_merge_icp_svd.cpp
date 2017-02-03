@@ -49,15 +49,10 @@ class occupancyMap
 {
 
 public:
-    occupancyMap(const std::string& topic, ros::NodeHandle nh) : topic_(topic), nh(nh)
+    occupancyMap(nav_msgs::OccupancyGrid map)
     {
         map_saved = false;
 
-        sub = nh.subscribe(topic_, 1, &occupancyMap::translateMap, this);
-    }
-
-    void translateMap(const nav_msgs::OccupancyGridConstPtr& map)
-    {
         width = map->info.width;
         height = map->info.height;
         res = map->info.resolution;
@@ -372,21 +367,9 @@ transformation calculateTransform(occupancyMap map1, occupancyMap map2, double f
 
     ROS_INFO("%.3f", global_smallest_error);
 
-
-//    //Map um points2[0] um alpha1 - alpha2 drehen, dann um dr = opt1 - point2[0] verschieben
-
-//    x = (x-px)*cos(dalpha) - (y-py)*sin(dalpha) + ox;
-//    y = (x-px)*sin(dalpha) - (y-py)*cos(dalpha) + ox;
-
-//    x' = (x'-px)*cos(-dalpha) - (y'-py)*sin(-dalpha) - ox;
-//    y' = (x'-px)*sin(-dalpha) - (y'-py)*cos(-dalpha) - ox;
-
     transformation result(rotation, optimum_p1);
     return result;
 }
-
-
-void drawMap(std::vector<point> pointsOcc, std::vector<point> pointsFree, std::string filename, double res);
 
 class Framework
 {
@@ -400,19 +383,17 @@ public:
                  cs_merge_msgs::getTransform::Response &res)
     {
         //Get first map
-        occupancyMap map1(req.topic_map_one, n);
+        occupancyMap map1(req.map_one);
 
-        while(!map1.map_saved && ros::ok())
-        {
+        while(!map1.map_saved && ros::ok()) {
             ros::spinOnce();
         }
         map1.sub.shutdown();
 
         //Get second map
-        occupancyMap map2(req.topic_map_two, n);
+        occupancyMap map2(req.map_two);
 
-        while(!map2.map_saved && ros::ok())
-        {
+        while(!map2.map_saved && ros::ok()) {
             ros::spinOnce();
         }
         map2.sub.shutdown();
@@ -427,58 +408,13 @@ public:
         double frac;
         double rep;
 
-        std::cout << "enter frac: "; std::cin >> frac;
-        std::cout << "enter rep: "; std::cin >> rep;
+        transformation result = calculateTransform(map1, map2);
 
-        ros::Time begin = ros::Time::now();
+        res.result.stamp = ros::Time::now();
 
-        transformation result = calculateTransform(map1, map2, frac, rep);
-
-        ros::Duration dauer = ros::Time::now() - begin;
-
-        ROS_INFO("Duration: %.5f", dauer.toSec());
-
-        cs_merge_msgs::transform response;
-
-        response.stamp = ros::Time::now();
-
-        response.rotation = result.rotation;
-        response.dx = result.translation.x;
-        response.dy = result.translation.y;
-
-        res.result = response;
-
-        //DEBUG
-        double xtemp;
-        double ytemp;
-
-        for(std::vector<point>::iterator it = map2.pointsOccupied.begin(); it!=map2.pointsOccupied.end();it++)
-        {
-            xtemp = it->x;
-            ytemp = it->y;
-
-            it->x = xtemp * cos(response.rotation) - ytemp *sin(response.rotation) + response.dx;
-            it->y = xtemp * sin(response.rotation) + ytemp *cos(response.rotation) + response.dy;
-        }
-        for(std::vector<point>::iterator it = map2.pointsFree.begin(); it!=map2.pointsFree.end();it++)
-        {
-            xtemp = it->x;
-            ytemp = it->y;
-
-            it->x = xtemp * cos(response.rotation) - ytemp *sin(response.rotation) + response.dx;
-            it->y = xtemp * sin(response.rotation) + ytemp *cos(response.rotation) + response.dy;
-        }
-
-        std::vector<point> occ2;
-        occ2.reserve(map1.pointsOccupied.size() + map2.pointsOccupied.size());
-        occ2.insert(occ2.end(), map1.pointsOccupied.begin(), map1.pointsOccupied.end());
-        occ2.insert(occ2.end(), map2.pointsOccupied.begin(), map2.pointsOccupied.end());
-        std::vector<point> free2;
-        free2.reserve(map1.pointsFree.size() + map2.pointsFree.size());
-        free2.insert(free2.end(), map1.pointsFree.begin(), map1.pointsFree.end());
-        free2.insert(free2.end(), map2.pointsFree.begin(), map2.pointsFree.end());
-
-        drawMap(occ2,free2,"icp2", .05);
+        res.result.rotation = result.rotation;
+        res.result.dx = result.translation.x;
+        res.result.dy = result.translation.y;
 
         //Evaluate
         double agr = 0;
@@ -562,101 +498,4 @@ int main(int argc, char **argv)
     ros::spin();
 
     return 0;
-}
-
-void drawMap(std::vector<point> pointsOcc, std::vector<point> pointsFree, std::string filename, double res)
-{
-
-    ROS_INFO("Draw");
-
-    int color;
-
-    double smallestX = pointsOcc[0].x;
-    double biggestX = pointsOcc[0].x;
-    double smallestY = pointsOcc[0].y;
-    double biggestY = pointsOcc[0].y;
-
-
-    for(std::vector<point>::iterator it = pointsOcc.begin(); it != pointsOcc.end(); it++) {
-        if(it->x < smallestX)
-            smallestX = it->x;
-        if(it->x > biggestX)
-            biggestX = it->x;
-        if(it->y < smallestY)
-            smallestY = it->y;
-        if(it->y > biggestY)
-            biggestY = it->y;
-    }
-
-    for(std::vector<point>::iterator it = pointsFree.begin(); it != pointsFree.end(); it++) {
-        if(it->x < smallestX)
-            smallestX = it->x;
-        if(it->x > biggestX)
-            biggestX = it->x;
-        if(it->y < smallestY)
-            smallestY = it->y;
-        if(it->y > biggestY)
-            biggestY = it->y;
-    }
-
-    for(std::vector<point>::iterator it = pointsOcc.begin(); it != pointsOcc.end(); it++) {
-        it->x -= smallestX;
-        it->y -= smallestY;
-    }
-
-    for(std::vector<point>::iterator it = pointsFree.begin(); it != pointsFree.end(); it++) {
-        it->x -= smallestX;
-        it->y -= smallestY;
-    }
-
-    unsigned int height = abs(biggestY - smallestY);
-    unsigned int width = abs(biggestX - smallestX);
-
-
-    std::string file = filename + ".pgm";
-
-    FILE* out = fopen(file.c_str(), "w");
-    if(!out)
-    {
-        ROS_ERROR("couldnt write file");
-        return;
-    }
-
-    fprintf(out, "P5\n# CREATOR: cs_icp.cpp %.3f m/pix\n%d %d\n255\n", res, width, height);
-
-    for(unsigned int y = 0; y < height; y++)
-    {
-        for(unsigned int x = 0; x < width; x++)
-        {
-            color = 205;
-
-            for(std::vector<point>::iterator it = pointsOcc.begin(); it != pointsOcc.end(); it++)
-            {
-                if(((it->x - x)*(it->x - x) + (it->y - y)*(it->y - y)) < 1)
-                {
-                    color = 0;
-                    break;
-                }
-            }
-            if(color == 205)
-            {
-                for(std::vector<point>::iterator it = pointsFree.begin(); it != pointsFree.end(); it++)
-                {
-                    if(((it->x - x)*(it->x - x) + (it->y - y)*(it->y - y)) < 1)
-                    {
-                        color = 255;
-                        break;
-                    }
-                }
-            }
-
-            fputc(color, out);
-
-        }
-    }
-
-    fclose(out);
-
-    ROS_INFO("map drawn");
-
 }

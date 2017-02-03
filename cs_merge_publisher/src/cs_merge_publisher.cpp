@@ -56,26 +56,20 @@ int main(int argc, char **argv)
 
   while(ros::ok())
   {
-      if(ros::Time::now() > lastUpdate + updateInterval)
+    if(ros::Time::now() > lastUpdate + updateInterval)
+    {
+      if(client.call(srv))
       {
-          if(client.call(srv))
-          {
-              world = srv.response.world;
-              ROS_INFO("Get World: %i", world.data.size());
-              lastUpdate = ros::Time::now();
-              br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), worldTopic, mapTopic));
-              pub.publish(world);
-
-
-          }
+        world = srv.response.world;
+        ROS_INFO("Get World: %i", world.data.size());
+        lastUpdate = ros::Time::now();
+        br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), worldTopic, mapTopic));
+        pub.publish(world);
       }
+    }
 
-
-
-
-      ros::spinOnce();
-
-      loop_rate.sleep();
+    ros::spinOnce();
+    loop_rate.sleep();
   }
 
   return 0;
