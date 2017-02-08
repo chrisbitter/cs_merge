@@ -1,14 +1,21 @@
 <launch>
 
-  <node pkg="rospy_tutorials" type="talker" name="talker">
-    <!-- set a private parameter for the node -->
-    <param name="agents" value="a value" />
-  </node>
+	<rosparam param="agents">["boreas", "chronos"]</rosparam>
 
-  <arg name="path" default="/home/christian/Projekte/ros/merge/" />
-  <arg name="file_1" default="apollon_bag1/apollon_ecke" />
-  <arg name="file_2" default="boreas_bag1/boreas_ecke" />
-  <node pkg="rosbag" type="play" name="player1" output="screen" args="--clock $(arg path)$(arg file_1).bag"/>
-  <node pkg="rosbag" type="play" name="player2" output="screen" args="--clock $(arg path)$(arg file_2).bag"/>
+	<rosparam param="merging_method">"cs_merge_icp_svd"</rosparam>
+
+	<rosparam param="ransac_fraction">.2</rosparam>
+  <rosparam param="repetitions">20</rosparam>
+	<rosparam param="starting_positions_amnt">36</rosparam>
+
+	<node pkg="cs_merge_icp_svd" type="cs_merge_icp_svd" name="icp_svd" output="screen"/>
+	
+  <node pkg="cs_merge_controller" type="cs_merge_controller" name="merge_controller" output="screen"/>
+
+	<arg name="path" default="/home/pathto/bags/" />
+	<arg name="file_1" default="apollon_corner" />
+	<arg name="file_2" default="boreas_corner" />
+	<node pkg="rosbag" type="play" name="player1" args="--clock $(arg path)$(arg file_1).bag"/>
+	<node pkg="rosbag" type="play" name="player2" args="--clock $(arg path)$(arg file_2).bag"/>
 
 </launch>
